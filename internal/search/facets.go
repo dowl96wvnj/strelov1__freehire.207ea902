@@ -114,7 +114,7 @@ func disjunctiveFacetCounts(ctx context.Context, query string, reqs []FacetReq, 
 				return fmt.Errorf("search: disjunctive total: %w", ctxErr)
 			}
 			if isBadRequest(err) {
-				return fmt.Errorf("search: disjunctive total: %w", err)
+				return fmt.Errorf("search: disjunctive total: %w: %v", ErrBadQuery, err)
 			}
 			return fmt.Errorf("search: disjunctive total: %w", err)
 		}
@@ -127,7 +127,7 @@ func disjunctiveFacetCounts(ctx context.Context, query string, reqs []FacetReq, 
 	for _, r := range reqs {
 		r := r
 		run(func() error {
-			resp, err := search(ctx, query, totalFilter, []string{r.Attr})
+			resp, err := search(ctx, query, r.Filter, []string{r.Attr})
 			if err != nil {
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return fmt.Errorf("search: disjunctive facet %s: %w", r.Attr, ctxErr)
@@ -142,7 +142,9 @@ func disjunctiveFacetCounts(ctx context.Context, query string, reqs []FacetReq, 
 				return err
 			}
 			mu.Lock()
-			res.Facets[r.Attr] = fr.Facets[r.Attr]
+			if d, ok := fr.Facets[r.Attr]; ok {
+				res.Facets[r.Attr] = d
+			}
 			for k, v := range fr.Stats {
 				res.Stats[k] = v
 			}
