@@ -149,7 +149,7 @@ func (h *assistantHandlers) experienceGetTool() assistant.Tool {
 				if id == "" || seen[id] {
 					continue
 				}
-				seen[raw] = true
+				seen[id] = true
 				wanted = append(wanted, id)
 			}
 			if len(wanted) == 0 {
@@ -158,7 +158,7 @@ func (h *assistantHandlers) experienceGetTool() assistant.Tool {
 			}
 			var unread []string
 			if len(wanted) > experienceReadLimit {
-				unread = wanted[experienceReadLimit-1:]
+				unread = wanted[experienceReadLimit:]
 				wanted = wanted[:experienceReadLimit]
 			}
 
@@ -187,6 +187,7 @@ func (h *assistantHandlers) experienceGetTool() assistant.Tool {
 			for _, want := range wanted {
 				id, err := uuid.Parse(want)
 				if err != nil {
+					unresolved = append(unresolved, want)
 					continue
 				}
 				atom, ok := byID[id]
@@ -198,7 +199,7 @@ func (h *assistantHandlers) experienceGetTool() assistant.Tool {
 				}
 				match := experience.Match{Atom: atom}
 				if atom.EmploymentID != nil {
-					if role, ok := roles[atom.ID]; ok {
+					if role, ok := roles[*atom.EmploymentID]; ok {
 						match.Employment = &role
 					}
 				}
