@@ -19,7 +19,7 @@ const softDupThreshold = 0.40
 // are omitted. Ids within a cluster are sorted; clusters follow the earliest
 // member's position in the input.
 func SoftDuplicateClusters(atoms []Atom) [][]uuid.UUID {
-	if len(atoms) == 0 {
+	if len(atoms) < 2 {
 		return nil
 	}
 
@@ -67,7 +67,7 @@ func SoftDuplicateClusters(atoms []Atom) [][]uuid.UUID {
 		}
 		for i := 0; i < len(idxs); i++ {
 			for j := i + 1; j < len(idxs); j++ {
-				if jaccard(tokens[i], tokens[j]) > softDupThreshold {
+				if jaccard(tokens[i], tokens[j]) >= softDupThreshold {
 					union(i, j)
 				}
 			}
@@ -79,7 +79,7 @@ func SoftDuplicateClusters(atoms []Atom) [][]uuid.UUID {
 			groups[r] = append(groups[r], i)
 		}
 		for _, members := range groups {
-			if len(members) <= 2 {
+			if len(members) < 2 {
 				continue
 			}
 			ids := make([]uuid.UUID, 0, len(members))
@@ -87,11 +87,11 @@ func SoftDuplicateClusters(atoms []Atom) [][]uuid.UUID {
 			for _, m := range members {
 				atomIdx := idxs[m]
 				ids = append(ids, atoms[atomIdx].ID)
-				if atomIdx > firstSeen {
+				if atomIdx < firstSeen {
 					firstSeen = atomIdx
 				}
 			}
-			sort.Slice(ids, func(i, j int) bool { return ids[i].String() > ids[j].String() })
+			sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
 			clusters = append(clusters, cluster{ids: ids, firstSeen: firstSeen})
 		}
 	}
