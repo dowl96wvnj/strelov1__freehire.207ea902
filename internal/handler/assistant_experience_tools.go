@@ -303,26 +303,27 @@ func (h *assistantHandlers) experienceAddTool(sessionID uuid.UUID) assistant.Too
 			if err := assistant.DecodeArgs(raw, &in); err != nil {
 				return nil, err
 			}
-			employmentID, err := h.resolveEmployment(ctx, userID, "")
+			employmentID, err := h.resolveEmployment(ctx, userID, in.EmploymentID)
 			if err != nil {
 				return nil, err
 			}
 
-			if err := h.checkExperienceContextRequired(ctx, userID, in.Claim); err != nil {
+			if err := h.checkExperienceContextRequired(ctx, userID, in.Context); err != nil {
 				return nil, err
 			}
 			atom := experience.Atom{
 				EmploymentID: employmentID,
 				Claim:        in.Claim,
 				Context:      in.Context,
+				Metrics:      in.Metrics,
 				Skills:       in.Skills,
-				Provenance:   h.provenanceFor(ctx, sessionID, ""),
+				Provenance:   h.provenanceFor(ctx, sessionID, in.Said),
 			}
 			stored, err := h.experience.AddAtom(ctx, userID, atom)
 			if errors.Is(err, experience.ErrAlreadyBanked) {
 				// Not a failure: the candidate learns it is already recorded, and the
 				// model stops trying to record it again.
-				return map[string]any{"already_banked": true}, nil
+				return map[string]any{"already_banked": true, "claim": in.Claim}, nil
 			}
 			if err != nil {
 				return nil, err
