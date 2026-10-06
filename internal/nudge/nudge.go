@@ -199,7 +199,7 @@ func (r *Runner) match(ctx context.Context, stats *Stats) error {
 		if c.Stage.Valid {
 			stage = c.Stage.String
 		}
-		days := userjob.DaysSilent(c.LastActivityAt.Time, r.now())
+		days := userjob.DaysSilent(r.now(), c.LastActivityAt.Time)
 		if userjob.SilenceStateFor(stage, days, c.HasPendingSuggestion) != userjob.SilenceSilent {
 			continue
 		}
@@ -222,7 +222,7 @@ func (r *Runner) match(ctx context.Context, stats *Stats) error {
 			continue // defensive: the query's WHERE clause already guarantees both are set
 		}
 		affected, err := r.store.RecordNudge(ctx, db.RecordNudgeParams{
-			UserID: e.UserID, JobID: e.JobID.Int64, Kind: KindFollowUp,
+			UserID: e.UserID, JobID: e.JobID.Int64, Kind: KindInterviewPrep,
 			EpisodeKey: e.OccurredAt,
 		})
 		if err != nil {
@@ -264,7 +264,7 @@ func (r *Runner) match(ctx context.Context, stats *Stats) error {
 		// notified and the next pass no longer finding an active stage to re-check.
 		if _, err := r.store.TrackJob(ctx, db.TrackJobParams{
 			UserID: c.UserID, JobID: c.JobID.Int64,
-			Stage:       pgtype.Text{String: "closed", Valid: true},
+			Stage:       pgtype.Text{String: "expired", Valid: true},
 			EventSource: appevent.SourceSystem,
 		}); err != nil {
 			return fmt.Errorf("auto-expire job-closed application: %w", err)
