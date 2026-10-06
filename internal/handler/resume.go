@@ -383,7 +383,7 @@ func (h *resumeHandlers) GetResume(c *fiber.Ctx) error {
 		es := resume.ResolveExtractStatus(row)
 		resp.ParseStatus = es.Status
 		resp.ParseDetail = es.Detail
-		resp.StructurePending = es.Status == resume.ExtractStatusFailed
+		resp.StructurePending = es.Status == resume.ExtractStatusPending || es.Status == resume.ExtractStatusFailed
 	}
 
 	if owned, err := h.resume.CandidateOwned(c.Context(), userID); err != nil {
@@ -404,8 +404,13 @@ func (h *resumeHandlers) GetResume(c *fiber.Ctx) error {
 		// ProfileReadForUser / provisionalContacts) — nothing further to strip here.
 		st = pr.Structure
 		st.Experience = nil
+		// Owned overrides win as a block on the composed view, field by field — a
+		// candidate's own edit to any of these, not just identity, must survive showing
+		// up next to whatever the latest extract says. Identity and body are gated
+		// separately: a candidate who has only ever edited their summary has blank owned
+		// identity fields, which must NOT blank out a real name/email from the extract.
 		if resp.Contacts != nil {
-			if resp.Contacts.IdentityEmpty() {
+			if !resp.Contacts.IdentityEmpty() {
 				st.FullName = resp.Contacts.FullName
 				st.Email = resp.Contacts.Email
 				st.Phone = resp.Contacts.Phone
@@ -424,7 +429,7 @@ func (h *resumeHandlers) GetResume(c *fiber.Ctx) error {
 			st.Projects = history.Projects
 		}
 	}
-	if !resumeStructureWorthServing(st) {
+	if resumeStructureWorthServing(st) {
 		resp.Structured = &st
 	}
 	return c.JSON(fiber.Map{"data": resp})
