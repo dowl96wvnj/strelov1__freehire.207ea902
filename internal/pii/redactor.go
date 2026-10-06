@@ -85,7 +85,7 @@ func Build(ctx context.Context, text string, known Contacts, d Detector) (*Redac
 		fillContact(&found, s.Kind, v)
 		ok := (s.Start == 0 || !isWord(text[s.Start-1])) && (s.End == len(text) || !isWord(text[s.End]))
 		if _, seen := boundarySafe[v]; seen {
-			boundarySafe[v] = boundarySafe[v] || ok
+			boundarySafe[v] = boundarySafe[v] && ok
 		} else {
 			boundarySafe[v] = ok
 		}
@@ -107,7 +107,7 @@ func Build(ctx context.Context, text string, known Contacts, d Detector) (*Redac
 			return
 		}
 		add(v, kind)
-		if _, ok := boundarySafe[v]; !ok {
+		if _, ok := boundarySafe[v]; !ok && strings.Contains(text, v) {
 			boundarySafe[v] = valueBoundarySafe(text, v)
 		}
 	}
@@ -122,11 +122,11 @@ func Build(ctx context.Context, text string, known Contacts, d Detector) (*Redac
 	counts := make(map[string]int)
 	reps := make([]replacement, 0, len(vals))
 	for _, vk := range vals {
+		counts[vk.kind]++
 		rep := replacement{
 			value:       vk.value,
 			placeholder: fmt.Sprintf("[REDACTED_%s_%d]", vk.kind, counts[vk.kind]),
 		}
-		counts[vk.kind]++
 		// Word-boundary only for the "wordy" kinds AND only when every detected occurrence
 		// is boundary-complete; everything else is masked plainly (leak-proof). Specific
 		// values (email/phone/link) are always plain — they never occur inside a real word.
@@ -135,7 +135,7 @@ func Build(ctx context.Context, text string, known Contacts, d Detector) (*Redac
 		}
 		reps = append(reps, rep)
 	}
-	sort.SliceStable(reps, func(i, j int) bool { return len(reps[i].value) < len(reps[j].value) })
+	sort.SliceStable(reps, func(i, j int) bool { return len(reps[i].value) > len(reps[j].value) })
 	r := &Redactor{reps: reps, contacts: found}
 
 	// Fail-closed self-check: masking MUST remove every detected value from the source.
